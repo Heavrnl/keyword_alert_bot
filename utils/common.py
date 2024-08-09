@@ -51,7 +51,7 @@ def banner():
   return message
 
 
-def is_msg_block(receiver,msg,channel_name,channel_id):
+def is_msg_block(receiver, msg, channel_name, channel_id):
   """
   消息黑名单检查
   Args:
@@ -65,15 +65,24 @@ def is_msg_block(receiver,msg,channel_name,channel_id):
   """
   user = utils.db.user.get_or_none(chat_id=receiver)
 
+  if not user:
+    logger.info(f"No user found with chat_id: {receiver}")
+    return False  # 如果找不到用户，直接返回False
+
   for blacklist_type in ['length_limit']:
-    find = utils.db.connect.execute_sql('select id,blacklist_value from user_block_list where user_id = ? and blacklist_type=? ' ,(user.id,blacklist_type)).fetchone()
+    find = utils.db.connect.execute_sql(
+      'select id, blacklist_value from user_block_list where user_id = ? and blacklist_type=?',
+      (user.id, blacklist_type)
+    ).fetchone()
+
     if find:
-      (id,blacklist_value) = find 
+      (id, blacklist_value) = find
       if blacklist_type == 'length_limit':
         limit = int(blacklist_value)
         msg_len = len(msg)
         if limit and msg_len > limit:
-          logger.info(f'block_list_check refuse send. blacklist_type: {blacklist_type}, limit: {limit}, msg_len: {msg_len}')
+          logger.info(
+            f'block_list_check refuse send. blacklist_type: {blacklist_type}, limit: {limit}, msg_len: {msg_len}')
           return True
   return False
 
