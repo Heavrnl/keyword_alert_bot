@@ -1,3 +1,45 @@
+
+## 做了哪些修改？
+
+  1. 可转发内容到私聊/频道/群组(有且只能有一个)
+  2. 关键字匹配转换成黑名单模式
+  3. 完整转发消息，但(文字+媒体)类型消息选择链接预览
+  4. 添加/info指令，用于获取群组ID
+
+
+## 自定义Bot命令
+
+用户可以自行向Telegram的BotFather添加以下指令:
+
+botfather -> 选择bot -> Edit Bot -> Edit Commands
+发送以下内容
+
+```bash
+start - 开始
+info - 显示群组ID
+subscribe - 关键字1,关键字2 频道1,群组2 [转发目标ID]
+subscribe - 正则表达式 频道1,群组2 [转发目标ID]
+help - 帮助
+```
+
+## 快速启动
+
+先配置config.yml
+
+```bash
+git clone https://github.com/Heavrnl/keyword_alert_bot.git
+cd ./keyword_alert_bot
+```
+
+```bash
+docker build -t heavrnl/keyword_alert_bot  .
+```
+
+```bash
+docker run -it --name keyword_alert_bot -v $(pwd)/config.yml:/app/config.yml   heavrnl/keyword_alert_bot
+```
+
+
 <details>
   <summary>展开查看原始内容</summary>
 # 🤖Telegram keyword alert bot⏰
