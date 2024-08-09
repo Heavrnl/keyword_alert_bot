@@ -1,21 +1,16 @@
 # 使用官方Python基础镜像
-FROM python:3.7-slim
+FROM python:3.9-slim
 
 # 设置工作目录
 WORKDIR /app
 
-# RUN pip config set global.index-url http://pypi.douban.com/simple/
-
 # 复制项目文件到容器
 COPY . /app
-# COPY Pipfile /app/Pipfile
-# COPY Pipfile.lock /app/Pipfile.lock
+
+# 复制 requirements.txt 到容器（假设 requirements.txt 在项目根目录）
+COPY requirements.txt /app/
 
 # 安装项目依赖
-# RUN pip install pipenv --trusted-host pypi.douban.com && pipenv install --system
-# RUN pip install pipenv && pipenv install && pipenv run pip freeze > requirements.txt && pip install -r requirements.txt
-RUN pip install pipenv && pipenv install
+RUN pip install -r requirements.txt
 
-CMD ["pipenv", "run", "python", "main.py"]
-# ENTRYPOINT ["pipenv shell python"]
-# CMD []
+CMD ["python", "main.py"]
