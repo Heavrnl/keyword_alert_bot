@@ -781,67 +781,54 @@ async def unsubscribe_all(event):
         raise events.StopPropagation
     user_id = find.id
 
-    # 查找当前的订阅数据
-    _user_subscribe_list = utils.db.connect.execute_sql(
-        'select keywords,channel_name,chat_id from user_subscribe_list where user_id = %d and status  = %d' % (
-        user_id, 0)).fetchall()
-    if _user_subscribe_list:
-        msg = ''
-        for keywords, channel_name, chat_id in _user_subscribe_list:
-            channel_url = get_channel_url(channel_name, chat_id)
-            msg += 'keyword: {}\nchannel: {}\n---\n'.format(keywords, channel_url)
+    # 直接清空 user_subscribe_list 表, 不需要 where 条件
+    delete_query = utils.db.user_subscribe_list.delete()
+    delete_result = delete_query.execute()
 
-        re_update = utils.db.user_subscribe_list.update(status=1).where(
-          utils.User_subscribe_list.user_id == user_id)  # 更新状态
-        re_update = re_update.execute()  # 更新成功返回1，不管是否重复执行
-        if re_update:
-            # await event.respond('success unsubscribe_all:\n' + msg,link_preview = False,parse_mode = None)
-            text, entities = html.parse('success unsubscribe_all:\n' + msg)  # 解析超大文本 分批次发送 避免输出报错
-            for text, entities in telethon_utils.split_text(text, entities):
-                await event.respond(text, formatting_entities=entities)
-
+    if delete_result:  # 删除成功
+        await event.respond('Successfully unsubscribed from all channels.')
     else:
-        await event.respond('not found unsubscribe list')
+        await event.respond('No subscriptions found.')
+
     raise events.StopPropagation
+
 
 
 @bot.on(events.NewMessage(pattern='/unsubscribe_id'))
 async def unsubscribe_id(event):
     '''
-  根据id取消订阅
-  '''
-    chat_id = event.message.chat.id
-    find = utils.db.user.get_or_none(chat_id=chat_id)
-    user_id = find
-    if not find:  # 不存在用户信息
-        await event.respond('Failed. Please input /start')
-        raise events.StopPropagation
-    text = event.message.text
-    text = text.replace('，', ',')  # 替换掉中文逗号
-    text = regex.sub(r'\s*,\s*', ',', text)  # 确保英文逗号间隔中间都没有空格  如 "https://t.me/xiaobaiup, https://t.me/com9ji"
+    根据id取消订阅
+    '''
+    text = event.message.text.replace('，', ',')  # 替换掉中文逗号
+    text = regex.sub(r'\s*,\s*', ',', text)  # 确保英文逗号间隔中间都没有空格
     splitd = [i for i in regex.split(r'\s+', text) if i]  # 删除空元素
+
     if len(splitd) > 1:
         ids = [int(i) for i in splitd[1].split(',') if i.isnumeric()]
         if not ids:
             await event.respond('Please input your unsubscribe_id. \ne.g. `/unsubscribe_id 123,321`')
             raise events.StopPropagation
-        result = []
-        for i in ids:
-            re_update = utils.db.user_subscribe_list.update(status=1).where(utils.User_subscribe_list.id == i,
-                                                                            utils.User_subscribe_list.user_id == user_id)  # 更新状态
-            re_update = re_update.execute()  # 更新成功返回1，不管是否重复执行
-            if re_update:
-                result.append(i)
-        await event.respond('success unsubscribe id:{}'.format(result if result else 'None'))
-    elif len(splitd) < 2:
-        await event.respond(
-            '输入需要**取消订阅**的订阅id：\n\nEnter the subscription id of the channel where ** unsubscribe **is required:')
-        cache.set('status_{}'.format(chat_id), {'current_status': '/unsubscribe_id ids', 'record_value': None},
-                  expire=5 * 60)  # 记录输入的关键字
-        raise events.StopPropagation
+        # 直接根据 ID 删除订阅 (不需要 user_id)
+        delete_query = utils.db.user_subscribe_list.delete().where(
+            utils.User_subscribe_list.id.in_(ids)
+        )
+        deleted_count = delete_query.execute()
+
+        if deleted_count > 0:
+            await event.respond(f'Successfully unsubscribed {deleted_count} IDs.')
+        else:
+            await event.respond('No matching subscriptions found to unsubscribe.')
+
+    # elif len(splitd) < 2:
+    #     await event.respond(
+    #         '输入需要**取消订阅**的订阅id：\n\nEnter the subscription id of the channel where ** unsubscribe **is required:')
+    #     cache.set('status_{}'.format(chat_id), {'current_status': '/unsubscribe_id ids', 'record_value': None},
+    #               expire=5 * 60)  # 记录输入的关键字
+    #     raise events.StopPropagation
     else:
         await event.respond('not found id')
     raise events.StopPropagation
+
 
 
 @bot.on(events.NewMessage(pattern='/unsubscribe'))
