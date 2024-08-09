@@ -103,17 +103,21 @@ async def cache_set(*args):
 
 @bot.on(events.NewMessage(pattern='/info'))
 async def info(event):
-    """Send the group chat ID when the command /info is issued in a group chat."""
+    """Send the chat ID when the command /info is issued in a group chat or channel."""
     chat = await event.get_chat()
 
-    # 判断聊天类型，使用 entity.broadcast 属性
-    if getattr(chat, 'broadcast', False):
-        await event.respond('这个指令只能在群组中使用。')
-    else:
+    # 检查消息是否来自频道或群组
+    if event.is_channel:
+        chat_id = event.message.chat.id
+        await event.respond(f'这个频道的 Telegram Chat ID 是: `{chat_id}`')
+    elif event.is_group:
         chat_id = event.message.chat.id
         await event.respond(f'这个群组的 Telegram Chat ID 是: `{chat_id}`')
+    else:
+        await event.respond('这个指令只能在群组或频道中使用。')
 
     raise events.StopPropagation
+
 
 
 
