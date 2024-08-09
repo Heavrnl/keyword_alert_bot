@@ -24,7 +24,7 @@ from utils.common import is_allow_access, banner, is_msg_block, get_event_chat_u
 # 配置访问tg服务器的代理
 proxy = None
 if all(config['proxy'].values()):  # 同时不为None
-    logger.info(f'proxy info:{config["proxy"]}')
+    print(f'proxy info:{config["proxy"]}')
     proxy = (getattr(socks, config['proxy']['type']), config['proxy']['address'], config['proxy']['port'])
 # proxy = (socks.SOCKS5, '127.0.0.1', 1088)
 
@@ -147,10 +147,10 @@ async def resolve_invit_hash(invit_hash, expired_secends=60 * 5):
     cache_key = f'01211resolve_invit_hash{invit_hash}'
     find = await cache_get(cache_key)
     if find:
-        logger.info(f'resolve_invit_hash HIT CACHE: {invit_hash}')
+        print(f'resolve_invit_hash HIT CACHE: {invit_hash}')
         return find
 
-    logger.info(f'resolve_invit_hash MISS: {invit_hash}')
+    print(f'resolve_invit_hash MISS: {invit_hash}')
     chatinvite = await client(CheckChatInviteRequest(invit_hash))
     if chatinvite and hasattr(chatinvite, 'chat'):  # 已加入
         # chatinvite.chat.id # 1695903641
@@ -251,7 +251,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
 
         find = utils.db.connect.execute_sql(sql, tuple(bind)).fetchall()
         if find:
-            logger.info(f'channel: {event_chat_username_list}; all chat_id & keywords:{find}')  # 打印当前频道，订阅的用户以及关键字
+            print(f'channel: {event_chat_username_list}; all chat_id & keywords:{find}')  # 打印当前频道，订阅的用户以及关键字
 
             for receiver, keywords, l_id, l_chat_id, target_channel in find:
                 try:
@@ -284,7 +284,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                             logger.error(f'{channel_msg_url} repeat send. deny!')
                             continue
                     if not l_chat_id:  # 未记录频道id
-                        logger.info(f'update user_subscribe_list.chat_id:{event.chat_id}  where id = {l_id} ')
+                        print(f'update user_subscribe_list.chat_id:{event.chat_id}  where id = {l_id} ')
                         re_update = utils.db.user_subscribe_list.update(chat_id=str(event.chat_id)).where(
                             utils.User_subscribe_list.id == l_id)
                         re_update.execute()
@@ -315,7 +315,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                 # message_str = f'[#FOUND]({channel_msg_url}) **{regex_match_str}**{channel_title}'
                                 if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
 
-                                    # logger.info(f'REGEX: receiver chat_id:{receiver}, l_id:{l_id}')
+                                    # print(f'REGEX: receiver chat_id:{receiver}, l_id:{l_id}')
                                     if isinstance(event, events.NewMessage.Event):  # 新建事件
                                         cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
 
@@ -379,6 +379,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                             else:
                                 should_execute_code = True
                         if should_execute_code:
+                            print('进入发送')
                             try:
                                 if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
                                     if isinstance(event, events.NewMessage.Event):  # 新建事件
@@ -399,7 +400,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                     elif message.file or message.media or message.photo:
                                         # 获取文件大小（单位为字节）
                                         file_size = message.file.size
-
+                                        print('进入发送1')
                                         # 判断文件大小是否超过 2GB
                                         if file_size > 2 * 1024 * 1024 * 1024:  # 2GB = 2 * 1024MB = 2 * 1024 * 1024KB = 2 * 1024 * 1024 * 1024B
                                             await bot.send_message(receiver, "文件大小超过 2GB，不发送")
@@ -407,7 +408,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                         else:
                                             # 下载文件到本地
                                             file_path = await message.download_media()
-
+                                            print('进入发送2')
                                             # 发送文件
                                             await bot.send_file(receiver, file_path)
 
@@ -416,10 +417,14 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
 
                                         # 如果消息还有文本内容，则发送文本
                                     elif message.text:
+                                        print('进入发送3')
                                         await bot.send_message(receiver, message.text, link_preview=False)
 
                                     else:
                                         await bot.send_message(receiver, message, link_preview=False)
+                            except Exception as _e:
+                                print(_e)
+
                             finally:
                                 break
 
@@ -454,7 +459,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
 
             if 'auto_leave_channel' in config and config['auto_leave_channel']:
                 if event_chat_username:  # 公开频道/组
-                    logger.info(f'Leave  Channel/group: {event_chat_username}')
+                    print(f'Leave  Channel/group: {event_chat_username}')
                     await leave_channel(event_chat_username)
 
 def check_is_whitelist(channel_name=None, chat_id=None):
@@ -481,7 +486,7 @@ def is_blacklisted(text, channel_name=None, chat_id=None):
     ).fetchone()
 
     if blacklist_entry and blacklist_entry[0].lower() in text.lower():
-        logger.info(f'blacklist match found: {blacklist_entry[0]}')
+        print(f'blacklist match found: {blacklist_entry[0]}')
         return True
 
     return False
@@ -497,7 +502,7 @@ def is_whitelisted(text, channel_name=None, chat_id=None):
     ).fetchone()
 
     if whitelist_entry and whitelist_entry[0].lower() in text.lower():
-        logger.info(f'Whitelist match found: {whitelist_entry[0]}')
+        print(f'Whitelist match found: {whitelist_entry[0]}')
         return True
 
     return False
@@ -653,7 +658,7 @@ async def leave_channel(channel_name):
         await client(LeaveChannelRequest(channel_name))
         await client(DeleteChannelRequest(channel_name))
         await client(DeleteHistoryRequest(channel_name))
-        logger.info(f'退出 {channel_name}')
+        print(f'退出 {channel_name}')
     except Exception as _e:  # 不存在的频道
         return f'无法退出该频道：{channel_name}, {_e}'
 
@@ -1022,7 +1027,7 @@ async def _list(event):
                 #   channel_entity = await client.get_entity(_entity)# 获取频道相关信息
                 # except ValueError as _e:# 频道不存在报错
                 #   pass
-                #   # logger.info(f'delete user_subscribe_list channel id:{sub_id} _entity:{_entity}')
+                #   # print(f'delete user_subscribe_list channel id:{sub_id} _entity:{_entity}')
                 #   # re_update = utils.db.user_subscribe_list.update(status = 1 ).where(utils.User_subscribe_list.id == sub_id)
                 #   # re_update.execute()
                 #   class channel_entity: username='';title=''
@@ -1036,15 +1041,15 @@ async def _list(event):
                             if channel_entity.username != channel_name:
                                 channel_name += '\t[CHANNEL NAME EXPIRED]'  # 标记频道名称过期
                                 # channel_name = '' # 不显示
-                                logger.info(f'channel username:{channel_name} expired.')
+                                print(f'channel username:{channel_name} expired.')
                         else:
                             channel_name += '\t[CHANNEL NONE EXPIRED]'  # 标记频道名称过期.当前不存在
                             # channel_name = '' # 不显示
-                            logger.info(f'channel username:{channel_name} expired. current none')
+                            print(f'channel username:{channel_name} expired. current none')
                 elif chat_id:  # 只有chat_id
                     if channel_entity and channel_entity.username:
                         channel_name = channel_entity.username
-                        logger.info(f'channel chat_id:{chat_id} username:{channel_name}')
+                        print(f'channel chat_id:{chat_id} username:{channel_name}')
 
                 channel_username = ''
                 if channel_entity:  # 有实体信息才显示频道名
