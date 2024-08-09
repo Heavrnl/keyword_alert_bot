@@ -10,7 +10,7 @@
 
 用户可以自行向Telegram的BotFather添加以下指令:
 
-bofather -> 选择bot -> Edit Bot -> Edit Commands
+botfather -> 选择bot -> Edit Bot -> Edit Commands
 发送以下内容
 
 ```bash
