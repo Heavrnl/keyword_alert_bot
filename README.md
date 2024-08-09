@@ -1,4 +1,5 @@
-
+<details>
+  <summary>展开查看原始内容</summary>
 # 🤖Telegram keyword alert bot⏰
 
 ![Build Status](https://github.com/Hootrix/keyword_alert_bot/workflows/CI/CD%20Pipeline/badge.svg)
@@ -177,3 +178,4 @@ $ pipenv  install
   <a target="_blank" href="https://paypal.me/hootrix?country.x=US&locale.x=zh_XC"><img height="260" alt="paypal" src="https://user-images.githubusercontent.com/10736915/231512737-299a2074-3ce1-42b7-9230-0e34d715bca1.jpg" /></a>
   
 </p>
+</details>
