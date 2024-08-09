@@ -314,10 +314,6 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                 if isinstance(event, events.NewMessage.Event):  # 新建事件
                                     cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
 
-                                print(receiver)
-                                print(message.text)
-                                print(event_chat_username)
-                                print(event.chat_id)
                                 # 黑名单检查
                                 if is_msg_block(receiver=receiver, msg=message.text, channel_name=event_chat_username,
                                                 channel_id=event.chat_id):
