@@ -7,10 +7,8 @@ WORKDIR /app
 # 复制项目文件到容器
 COPY . /app
 
-# 复制 requirements.txt 到容器（假设 requirements.txt 在项目根目录）
-COPY requirements.txt /app/
-
 # 安装项目依赖
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
+# 运行应用程序
 CMD ["python", "main.py"]
