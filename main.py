@@ -400,7 +400,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                     elif message.file or message.media or message.photo:
                                         # 获取文件大小（单位为字节）
                                         file_size = message.file.size
-                                        print('进入发送1')
+
                                         # 判断文件大小是否超过 2GB
                                         if file_size > 2 * 1024 * 1024 * 1024:  # 2GB = 2 * 1024MB = 2 * 1024 * 1024KB = 2 * 1024 * 1024 * 1024B
                                             await bot.send_message(receiver, "文件大小超过 2GB，不发送")
@@ -408,7 +408,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                         else:
                                             # 下载文件到本地
                                             file_path = await message.download_media()
-                                            print('进入发送2')
+
                                             # 发送文件
                                             await bot.send_file(receiver, file_path)
 
@@ -417,7 +417,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
 
                                         # 如果消息还有文本内容，则发送文本
                                     elif message.text:
-                                        print('进入发送3')
+                                        
                                         await bot.send_message(receiver, message.text, link_preview=False)
 
                                     else:
