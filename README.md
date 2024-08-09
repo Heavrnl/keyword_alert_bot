@@ -9,6 +9,10 @@
 ## 自定义Bot命令
 
 用户可以自行向Telegram的BotFather添加以下指令:
+
+bofather -> 选择bot -> Edit Bot -> Edit Commands
+发送以下内容
+
 ```bash
 start - 开始
 info - 显示群组ID
