@@ -53,22 +53,28 @@ def banner():
 
 def is_msg_block(receiver, msg, channel_name, channel_id):
   """
-  消息黑名单检查
-  Args:
-      receiver : 消息接收用户 chat id
-      msg : 消息内容
-      channel_name : 消息发送的频道名称
-      channel_id : 消息发送的频道id
-
-  Returns:
-      Bool: True 命中黑名单 不发送消息，False 无命中 发送消息
+  消息黑名单检查，同时支持白名单
   """
   user = utils.db.user.get_or_none(chat_id=receiver)
 
   if not user:
     logger.info(f"No user found with chat_id: {receiver}")
-    return False  # 如果找不到用户，直接返回False
+    return False
 
+  # 检查白名单
+  for whitelist_type in ['length_limit']:
+    find_whitelist = utils.db.connect.execute_sql(
+      'select id, keywords from user_subscribe_list where user_id = ? and is_whitelist=1 and (channel_name=? or chat_id=?)',
+      (user.id, channel_name, channel_id)
+    ).fetchone()
+
+    if find_whitelist:
+      # 如果匹配了白名单规则，则不阻止消息
+      if find_whitelist[1].lower() in msg.lower():
+        logger.info(f'Message allowed by whitelist. receiver: {receiver}, keywords: {find_whitelist[1]}')
+        return False
+
+  # 继续执行黑名单逻辑
   for blacklist_type in ['length_limit']:
     find = utils.db.connect.execute_sql(
       'select id, blacklist_value from user_block_list where user_id = ? and blacklist_type=?',

@@ -307,113 +307,127 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                         regex_match_str = list(set(regex_match_str))  # 处理重复元素
 
                         if message.media or message.file or message.photo: regex_match_str = True
-                        if regex_match_str:  # 默认 findall()结果
-                            # # {chat_title} \n\n
-                            # channel_title = f"\n\nCHANNEL: {chat_title}" if not event_chat_username else ""
-                            #
-                            # message_str = f'[#FOUND]({channel_msg_url}) **{regex_match_str}**{channel_title}'
-                            if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
+                        try:
+                            if regex_match_str:  # 默认 findall()结果
+                                # # {chat_title} \n\n
+                                # channel_title = f"\n\nCHANNEL: {chat_title}" if not event_chat_username else ""
+                                #
+                                # message_str = f'[#FOUND]({channel_msg_url}) **{regex_match_str}**{channel_title}'
+                                if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
 
-                                # logger.info(f'REGEX: receiver chat_id:{receiver}, l_id:{l_id}')
-                                if isinstance(event, events.NewMessage.Event):  # 新建事件
-                                    cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
+                                    # logger.info(f'REGEX: receiver chat_id:{receiver}, l_id:{l_id}')
+                                    if isinstance(event, events.NewMessage.Event):  # 新建事件
+                                        cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
 
-                                # 黑名单检查
-                                if is_msg_block(receiver=receiver, msg=message.text, channel_name=event_chat_username,
-                                                channel_id=event.chat_id):
+                                    # 黑名单检查
+                                    if is_msg_block(receiver=receiver, msg=message.text, channel_name=event_chat_username,
+                                                    channel_id=event.chat_id):
+                                        continue
+
+                                    if (message.media and message.text) or (message.file and message.text) or (
+                                            message.photo and message.text):
+                                        message_str = f'[\u200B]({channel_msg_url})'
+                                        await bot.send_message(receiver, message_str + message.text, link_preview=True,
+                                                               parse_mode='Markdown')
+
+
+                                    # 判断消息是否包含文件内容
+                                    elif message.file or message.media or message.photo:
+                                        # 获取文件大小（单位为字节）
+                                        file_size = message.file.size
+
+                                        # 判断文件大小是否超过 2GB
+                                        if file_size > 2 * 1024 * 1024 * 1024:  # 2GB = 2 * 1024MB = 2 * 1024 * 1024KB = 2 * 1024 * 1024 * 1024B
+                                            await bot.send_message(receiver, "文件大小超过 2GB，不发送")
+                                            print("文件大小超过 2GB，不发送")
+                                        else:
+                                            # 下载文件到本地
+                                            file_path = await message.download_media()
+
+                                            # 发送文件
+                                            await bot.send_file(receiver, file_path)
+
+                                            # 删除下载的文件（可选）
+                                            os.remove(file_path)
+
+                                        # 如果消息还有文本内容，则发送文本
+                                    elif message.text:
+                                        await bot.send_message(receiver, message.text, link_preview=False)
+
+                                    else:
+                                        await bot.send_message(receiver, message, link_preview=False)
+                                else:
+                                    # 已发送该消息
+                                    logger.debug(
+                                        f'REGEX send repeat. rule_name:{config["msg_unique_rule"]}  {CACHE_KEY_UNIQUE_SEND}:{channel_msg_url}')
                                     continue
 
-                                if (message.media and message.text) or (message.file and message.text) or (
-                                        message.photo and message.text):
-                                    message_str = f'[\u200B]({channel_msg_url})'
-                                    await bot.send_message(receiver, message_str + message.text, link_preview=True,
-                                                           parse_mode='Markdown')
-
-
-                                # 判断消息是否包含文件内容
-                                elif message.file or message.media or message.photo:
-                                    # 获取文件大小（单位为字节）
-                                    file_size = message.file.size
-
-                                    # 判断文件大小是否超过 2GB
-                                    if file_size > 2 * 1024 * 1024 * 1024:  # 2GB = 2 * 1024MB = 2 * 1024 * 1024KB = 2 * 1024 * 1024 * 1024B
-                                        await bot.send_message(receiver, "文件大小超过 2GB，不发送")
-                                        print("文件大小超过 2GB，不发送")
-                                    else:
-                                        # 下载文件到本地
-                                        file_path = await message.download_media()
-
-                                        # 发送文件
-                                        await bot.send_file(receiver, file_path)
-
-                                        # 删除下载的文件（可选）
-                                        os.remove(file_path)
-
-                                    # 如果消息还有文本内容，则发送文本
-                                elif message.text:
-                                    await bot.send_message(receiver, message.text, link_preview=False)
-
-                                else:
-                                    await bot.send_message(receiver, message, link_preview=False)
                             else:
-                                # 已发送该消息
                                 logger.debug(
-                                    f'REGEX send repeat. rule_name:{config["msg_unique_rule"]}  {CACHE_KEY_UNIQUE_SEND}:{channel_msg_url}')
+                                    f'regex_match empty. regex:{keywords} ,message: t.me/{event_chat_username}/{event.message.id}')
+                        finally:
+                            break
+                    else:  # 普通模式
+                        should_execute_code = False
+                        if check_is_whitelist(channel_name=event_chat_username, chat_id=event.chat_id):
+                            # 如果关键词在白名单中并匹配，允许消息通过
+                            if is_whitelisted(text,channel_name=event_chat_username, chat_id=event.chat_id):
+                                should_execute_code = True
+                        else:
+                            if is_blacklisted(text,channel_name=event_chat_username, chat_id=event.chat_id):
                                 continue
+                            else:
+                                should_execute_code = True
+                        if should_execute_code:
+                            try:
+                                if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
+                                    if isinstance(event, events.NewMessage.Event):  # 新建事件
+                                        cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
+
+                                    # 黑名单检查
+                                    if is_msg_block(receiver=receiver, msg=message.text, channel_name=event_chat_username,
+                                                    channel_id=event.chat_id):
+                                        continue
+
+                                    if (message.media and message.text) or (message.file and message.text) or (
+                                            message.photo and message.text):
+                                        message_str = f'[\u200B]({channel_msg_url})'
+                                        await bot.send_message(receiver, message_str + message.text, link_preview=True,
+                                                               parse_mode='Markdown')
+
+                                    # 判断消息是否包含文件内容
+                                    elif message.file or message.media or message.photo:
+                                        # 获取文件大小（单位为字节）
+                                        file_size = message.file.size
+
+                                        # 判断文件大小是否超过 2GB
+                                        if file_size > 2 * 1024 * 1024 * 1024:  # 2GB = 2 * 1024MB = 2 * 1024 * 1024KB = 2 * 1024 * 1024 * 1024B
+                                            await bot.send_message(receiver, "文件大小超过 2GB，不发送")
+
+                                        else:
+                                            # 下载文件到本地
+                                            file_path = await message.download_media()
+
+                                            # 发送文件
+                                            await bot.send_file(receiver, file_path)
+
+                                            # 删除下载的文件（可选）
+                                            os.remove(file_path)
+
+                                        # 如果消息还有文本内容，则发送文本
+                                    elif message.text:
+                                        await bot.send_message(receiver, message.text, link_preview=False)
+
+                                    else:
+                                        await bot.send_message(receiver, message, link_preview=False)
+                            finally:
+                                break
 
                         else:
+                            # 已发送该消息
                             logger.debug(
-                                f'regex_match empty. regex:{keywords} ,message: t.me/{event_chat_username}/{event.message.id}')
-                    else:  # 普通模式
-                        if keywords.lower() not in text.lower():
-                            if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
-                                # logger.info(f'TEXT: receiver chat_id:{receiver}, l_id:{l_id}, message_str:{message}')
-
-                                if isinstance(event, events.NewMessage.Event):  # 新建事件
-                                    cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
-
-                                # 黑名单检查
-                                if is_msg_block(receiver=receiver, msg=message.text, channel_name=event_chat_username,
-                                                channel_id=event.chat_id):
-                                    continue
-
-                                if (message.media and message.text) or (message.file and message.text) or (
-                                        message.photo and message.text):
-                                    message_str = f'[\u200B]({channel_msg_url})'
-                                    await bot.send_message(receiver, message_str + message.text, link_preview=True,
-                                                           parse_mode='Markdown')
-
-                                # 判断消息是否包含文件内容
-                                elif message.file or message.media or message.photo:
-                                    # 获取文件大小（单位为字节）
-                                    file_size = message.file.size
-
-                                    # 判断文件大小是否超过 2GB
-                                    if file_size > 2 * 1024 * 1024 * 1024:  # 2GB = 2 * 1024MB = 2 * 1024 * 1024KB = 2 * 1024 * 1024 * 1024B
-                                        await bot.send_message(receiver, "文件大小超过 2GB，不发送")
-
-                                    else:
-                                        # 下载文件到本地
-                                        file_path = await message.download_media()
-
-                                        # 发送文件
-                                        await bot.send_file(receiver, file_path)
-
-                                        # 删除下载的文件（可选）
-                                        os.remove(file_path)
-
-                                    # 如果消息还有文本内容，则发送文本
-                                elif message.text:
-                                    await bot.send_message(receiver, message.text, link_preview=False)
-
-                                else:
-                                    await bot.send_message(receiver, message, link_preview=False)
-
-                            else:
-                                # 已发送该消息
-                                logger.debug(
-                                    f'TEXT send repeat. rule_name:{config["msg_unique_rule"]}  {CACHE_KEY_UNIQUE_SEND}:{channel_msg_url}')
-                                continue
+                                f'TEXT send repeat. rule_name:{config["msg_unique_rule"]}  {CACHE_KEY_UNIQUE_SEND}:{channel_msg_url}')
+                            continue
                 except errors.rpcerrorlist.UserIsBlockedError as _e:
                     # User is blocked (caused by SendMessageRequest)  用户已手动停止bot
                     logger.error(f'{_e}')
@@ -442,6 +456,51 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                 if event_chat_username:  # 公开频道/组
                     logger.info(f'Leave  Channel/group: {event_chat_username}')
                     await leave_channel(event_chat_username)
+
+def check_is_whitelist(channel_name=None, chat_id=None):
+    """
+    检查用户是否有白名单记录（is_whitelist = 1）
+    """
+
+    is_whitelist = utils.db.connect.execute_sql(
+        'SELECT is_whitelist FROM user_subscribe_list WHERE channel_name = ? AND chat_id = ? LIMIT 1',
+        (channel_name, chat_id)
+    ).fetchone()
+
+    return bool(is_whitelist and is_whitelist[0] == 1)
+
+def is_blacklisted(text, channel_name=None, chat_id=None):
+    """
+    检查消息是否符合白名单
+    """
+
+
+    blacklist_entry = utils.db.connect.execute_sql(
+        'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 0 AND channel_name = ? AND chat_id = ? AND keywords = ?',
+        (channel_name, chat_id, text)
+    ).fetchone()
+
+    if blacklist_entry and blacklist_entry[0].lower() in text.lower():
+        logger.info(f'blacklist match found: {blacklist_entry[0]}')
+        return True
+
+    return False
+def is_whitelisted(text, channel_name=None, chat_id=None):
+    """
+    检查消息是否符合白名单
+    """
+
+
+    whitelist_entry = utils.db.connect.execute_sql(
+        'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 1 AND channel_name = ? AND chat_id = ? AND keywords = ?',
+        (channel_name, chat_id, text)
+    ).fetchone()
+
+    if whitelist_entry and whitelist_entry[0].lower() in text.lower():
+        logger.info(f'Whitelist match found: {whitelist_entry[0]}')
+        return True
+
+    return False
 
 
 # bot相关操作
@@ -522,14 +581,12 @@ def parse_full_command(command, keywords, channels):
     return res
 
 
-async def join_channel_insert_subscribe(user_id, keyword_channel_list, target_channel=None):
+async def join_channel_insert_subscribe(user_id, keyword_channel_list, target_channel=None, is_whitelist=False):
     """
-    加入频道 且 写入订阅数据表
-
-    支持传入频道id
+    加入频道 且 写入订阅数据表，支持白名单模式
     """
     res = []
-    for k, c in keyword_channel_list:  # 确保只解包关键字和频道
+    for k, c in keyword_channel_list:
         username = ''
         chat_id = ''
         try:
@@ -546,7 +603,7 @@ async def join_channel_insert_subscribe(user_id, keyword_channel_list, target_ch
             res.append((k, username, chat_id))
 
         except Exception as _e:
-            logger.error(f'{c} JoinChannelRequest ERROR:{_e}')
+            logger.error(f'{c} 加入频道失败：{_e}')
             return f'无法使用该频道：{c}\n\nChannel error, unable to use: {_e}'
 
     result = []
@@ -562,8 +619,11 @@ async def join_channel_insert_subscribe(user_id, keyword_channel_list, target_ch
         )
 
         if find:
-            re_update = utils.db.user_subscribe_list.update(status=0, target_channel=target_channel).where(
-                utils.User_subscribe_list.id == find.id)
+            re_update = utils.db.user_subscribe_list.update(
+                status=0,
+                is_whitelist=int(is_whitelist),  # 更新为白名单或黑名单
+                target_channel=target_channel
+            ).where(utils.User_subscribe_list.id == find.id)
             re_update = re_update.execute()
             if re_update:
                 result.append((keyword, channel_name, _chat_id))
@@ -574,7 +634,8 @@ async def join_channel_insert_subscribe(user_id, keyword_channel_list, target_ch
                 channel_name=channel_name.replace('@', ''),
                 create_time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 chat_id=_chat_id,
-                target_channel=target_channel  # 存储 target_channel
+                is_whitelist=int(is_whitelist),  # 存储白名单或黑名单状态
+                target_channel=target_channel
             )
             if insert_res:
                 result.append((keyword, channel_name, _chat_id))
@@ -651,31 +712,32 @@ async def start(event):
     raise events.StopPropagation
 
 
-@bot.on(events.NewMessage(pattern='/subscribe'))
+@bot.on(events.NewMessage(pattern=r'/subscribe(-w)?'))
 async def subscribe(event):
-    """Send a message when the command /subscribe is issued."""
+    """处理 /subscribe 命令，支持白名单模式。"""
     chat_id = event.message.chat.id
+    is_whitelist = '-w' in event.message.text  # 检查是否为白名单模式
+
     if not is_allow_access(chat_id):
         await event.respond('Opps! I\'m a private bot. 对不起, 这是一个私人专用的Bot')
         raise events.StopPropagation
 
     find = utils.db.user.get_or_none(chat_id=chat_id)
     if not find:
-        await event.respond('Failed. Please input /start')
+        await event.respond('失败了。请先输入 /start')
         raise events.StopPropagation
 
-    text = event.message.text
-    text = text.replace('，', ',')  # 替换掉中文逗号
-    text = regex.sub(r'\s*,\s*', ',', text)  # 确保英文逗号间隔中间都没有空格
+    text = event.message.text.replace('-w', '').strip()
+    text = text.replace('，', ',')
+    text = regex.sub(r'\s*,\s*', ',', text)
 
-    # 修改解析部分，支持新的[]参数
     match = regex.search(r'(.+)\s+\[(.+)\]$', text)
     if match:
         main_text, target_channel = match.groups()
-        target_channel = target_channel.strip()  # 提取目标频道
-        splitd = [i for i in regex.split(r'\s+', main_text) if i]  # 删除空元素
+        target_channel = target_channel.strip()
+        splitd = [i for i in regex.split(r'\s+', main_text) if i]
     else:
-        splitd = [i for i in regex.split(r'\s+', text) if i]  # 删除空元素
+        splitd = [i for i in regex.split(r'\s+', text) if i]
         target_channel = None
 
     if len(splitd) <= 1:
@@ -685,11 +747,12 @@ async def subscribe(event):
                   expire=5 * 60)
     elif len(splitd) == 3:
         command, keywords, channels = splitd
-        result = await join_channel_insert_subscribe(find.id, parse_full_command(command, keywords, channels),
-                                                     target_channel)
+        keyword_channel_list = parse_full_command(command, keywords, channels)
+
+        result = await join_channel_insert_subscribe(find.id, keyword_channel_list, target_channel, is_whitelist)
+
         if isinstance(result, str):
-            logger.error('join_channel_insert_subscribe 错误：' + result)
-            await event.respond(result, parse_mode=None)  # 提示错误消息
+            await event.respond(result, parse_mode=None)
         else:
             msg = ''
             for key, channel, _chat_id in result:
@@ -701,7 +764,7 @@ async def subscribe(event):
                 msg += f'keyword:{key}  channel:{channel}\n'
             if msg:
                 msg = 'success subscribe:\n' + msg
-                text, entities = html.parse(msg)  # 解析超大文本 分批次发送 避免输出报错
+                text, entities = html.parse(msg)
                 for text, entities in telethon_utils.split_text(text, entities):
                     await event.respond(text, formatting_entities=entities)
     raise events.StopPropagation
@@ -945,7 +1008,6 @@ async def cancel(event):
     raise events.StopPropagation
 
 
-# 查询当前用户的所有订阅
 @bot.on(events.NewMessage(pattern='/list'))
 async def _list(event):
     chat_id = event.message.chat.id
@@ -953,12 +1015,13 @@ async def _list(event):
         'chat_id': chat_id,
     })
     if find:
+        # 在查询中加入 is_whitelist 字段
         find = utils.db.connect.execute_sql(
-            'select id,keywords,channel_name,chat_id from user_subscribe_list where user_id = %d and status  = %d' % (
+            'select id,keywords,channel_name,chat_id,is_whitelist from user_subscribe_list where user_id = %d and status  = %d' % (
             find.id, 0)).fetchall()
         if find:
             msg = ''
-            for sub_id, keywords, channel_name, chat_id in find:
+            for sub_id, keywords, channel_name, chat_id, is_whitelist in find:  # 加入 is_whitelist
                 _type = 'regex' if is_regex_str(keywords) else 'keyword'
                 channel_url = get_channel_url(channel_name, chat_id)
 
@@ -1002,7 +1065,10 @@ async def _list(event):
                         channel_username = f'channel username: {channel_name}\n'
 
                 channel_url = f'<a href="{channel_url}-1">{"https://t.me/" + channel_name if channel_name else channel_url}</a>'
-                msg += f'id:{sub_id}\n{_type}: {keywords}\n{channel_title}{channel_username}channel url: {channel_url}\n---\n'
+
+                # 在这里判断 is_whitelist 并添加到 msg 中
+                whitelist_info = "is_whitelist" if is_whitelist == 1 else ""
+                msg += f'id:{sub_id}\n{_type}: {keywords}\n{channel_title}{channel_username}channel url: {channel_url}\n{whitelist_info}\n---\n'
 
             text, entities = html.parse(msg)  # 解析超大文本 分批次发送 避免输出报错
             for text, entities in telethon_utils.split_text(text, entities):
@@ -1013,6 +1079,7 @@ async def _list(event):
     else:
         await event.respond('please /start')
     raise events.StopPropagation
+
 
 
 # 其余消息的统一处理方法

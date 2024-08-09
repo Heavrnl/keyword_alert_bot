@@ -43,20 +43,17 @@ class User_subscribe_list(_Base):
     """
     用户订阅表
     user_subscribe_list
-    id user_id channel_name keywords status create_time
+    id user_id channel_name keywords status is_whitelist target_channel create_time
     """
     user_id = IntegerField(index=True)
-    channel_name = CharField(50, null=False)  # 频道名称
-
-    # https://docs.telethon.dev/en/latest/concepts/chats-vs-channels.html#channels
-    chat_id = CharField(50, null=False, default='')  # 频道的非官方id。 e.g. -1001630956637
-
+    channel_name = CharField(50, null=False)
+    chat_id = CharField(50, null=False, default='')
     keywords = CharField(120, null=False)
-    status = SmallIntegerField(default=0)  # 0 正常 1删除
+    status = SmallIntegerField(default=0)
+    is_whitelist = SmallIntegerField(default=0)
+    target_channel = CharField(50, null=True)  # 将这个字段设为可空
     create_time = DateTimeField('%Y-%m-%d %H:%M:%S', null=True)
 
-    # 新增目标频道字段
-    target_channel = CharField(50, null=True, default='')
 
 
 class User_block_list(_Base):
@@ -77,43 +74,36 @@ class User_block_list(_Base):
     update_time = DateTimeField('%Y-%m-%d %H:%M:%S', null=True)
 
 
+# 在数据库初始化时进行表结构更新
 class _Db:
     def __init__(self):
-        # 创建实例类
-        init_class = [
-            User,
-            User_subscribe_list,
-            User_block_list,
-        ]
+        init_class = [User, User_subscribe_list, User_block_list]
         for model_class in init_class:
             try:
                 model = model_class()
-                model.table_exists() or model.create_table()  # 不存在则创建表
+                model.table_exists() or model.create_table()
 
                 # 检查并添加新的字段
                 if model_class == User_subscribe_list:
                     migrator = SqliteMigrator(_connect)
+
+                    # 检查并添加 `target_channel` 字段
                     if not hasattr(model_class, 'target_channel'):
                         migrate(
                             migrator.add_column('user_subscribe_list', 'target_channel', CharField(default=''))
                         )
 
-                # 执行空查询(检测字段缺失的报错)
+                    # 检查并添加 `is_whitelist` 字段
+                    if not hasattr(model_class, 'is_whitelist'):
+                        migrate(
+                            migrator.add_column('user_subscribe_list', 'is_whitelist', SmallIntegerField(default=0))
+                        )
+
                 model.get_or_none(0)
 
                 setattr(self, model_class.__name__.lower(), model)
             except OperationalError as __e:
-                # 处理字段不存在的报错
-                _e = str(__e)
-                if 'no such column' in _e:
-                    # 动态添加字段
-                    find = re.search('no such column: (?:\w+\.)([a-z_0-9]+)$', _e)
-                    if find:
-                        field = find.group(1)
-                        if hasattr(model_class, field):
-                            self.add_column(model_class.__name__.lower(), getattr(model_class, field))
-                        else:
-                            raise __e
+                raise __e
 
     def add_column(self, table, field):
         '''
