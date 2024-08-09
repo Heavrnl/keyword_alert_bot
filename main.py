@@ -1004,8 +1004,8 @@ async def _list(event):
     if find:
         # 在查询中加入 is_whitelist 字段
         find = utils.db.connect.execute_sql(
-            'select id,keywords,channel_name,chat_id,is_whitelist from user_subscribe_list where user_id = %d and status  = %d' % (
-            find.id, 0)).fetchall()
+            'select id,keywords,channel_name,chat_id,is_whitelist from user_subscribe_list where  status  = %d' % (
+            0)).fetchall()
         if find:
             msg = ''
             for sub_id, keywords, channel_name, chat_id, is_whitelist in find:  # 加入 is_whitelist
