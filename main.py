@@ -393,7 +393,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                 should_execute_code = True
                         else:
                             if is_blacklisted(text,keywords,channel_name=event_chat_username, chat_id=event.chat_id):
-                                continue
+                                break
                             else:
                                 should_execute_code = True
                         if should_execute_code:
