@@ -1,6 +1,7 @@
 # coding=utf-8
 import socks
-from telethon import TelegramClient, events, sync, errors
+import requests
+from telethon import TelegramClient, events, sync, errors, types
 from db import utils
 import os, datetime
 import re as regex
@@ -15,7 +16,7 @@ from telethon.tl.functions.channels import LeaveChannelRequest, DeleteChannelReq
 from logger import logger
 from config import config, _current_path as current_path
 from telethon import utils as telethon_utils
-from telethon.tl.types import PeerChannel
+from telethon.tl.types import PeerChannel, InputPeerChannel, InputPeerChat
 from telethon.extensions import markdown, html
 from asyncstdlib.functools import lru_cache as async_lru_cache
 import asyncio
@@ -101,20 +102,37 @@ async def cache_set(*args):
     result = await future
     return result
 
+
 @bot.on(events.NewMessage(pattern='/info'))
 async def info(event):
-    """Send the chat ID when the command /info is issued in a group chat or channel."""
-    chat = await event.get_chat()
+    """通过 Telegram API 获取群组或频道的 ID。"""
+    BOT_TOKEN = account['bot_token']
+    API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset=-1'
+    response = requests.get(API_URL)
+    data = response.json()
+    print(data)
 
-    # 检查消息是否来自频道或群组
-    if event.is_channel:
-        chat_id = event.message.chat.id
-        await event.respond(f'这个频道的 Telegram Chat ID 是: `{chat_id}`')
-    elif event.is_group:
-        chat_id = event.message.chat.id
-        await event.respond(f'这个群组的 Telegram Chat ID 是: `{chat_id}`')
+    if data['ok'] and 'result' in data and len(data['result']) > 0:
+        # 获取最新的更新信息
+        update = data['result'][0]
+
+        # 检查是否为普通消息
+        if 'message' in update:
+            chat = update['message']['chat']
+        # 检查是否为频道消息
+        elif 'channel_post' in update:
+            chat = update['channel_post']['sender_chat']
+        else:
+            await event.respond('无法识别消息类型。')
+            raise events.StopPropagation
+
+        # 提取所需的聊天信息
+        chat_id = chat['id']
+
+
+        await event.respond(f'这个群组或频道的ID是: `{chat_id}`')
     else:
-        await event.respond('这个指令只能在群组或频道中使用。')
+        await event.respond('无法获取群组或频道的 ID，请重试。')
 
     raise events.StopPropagation
 
@@ -371,15 +389,15 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                         should_execute_code = False
                         if check_is_whitelist(channel_name=event_chat_username, chat_id=event.chat_id):
                             # 如果关键词在白名单中并匹配，允许消息通过
-                            if is_whitelisted(text,channel_name=event_chat_username, chat_id=event.chat_id):
+                            if is_whitelisted(text,keywords,channel_name=event_chat_username, chat_id=event.chat_id):
                                 should_execute_code = True
                         else:
-                            if is_blacklisted(text,channel_name=event_chat_username, chat_id=event.chat_id):
+                            if is_blacklisted(text,keywords,channel_name=event_chat_username, chat_id=event.chat_id):
                                 continue
                             else:
                                 should_execute_code = True
                         if should_execute_code:
-                            print('进入发送')
+                            
                             try:
                                 if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
                                     if isinstance(event, events.NewMessage.Event):  # 新建事件
@@ -474,7 +492,7 @@ def check_is_whitelist(channel_name=None, chat_id=None):
 
     return bool(is_whitelist and is_whitelist[0] == 1)
 
-def is_blacklisted(text, channel_name=None, chat_id=None):
+def is_blacklisted(text, keywords,channel_name=None, chat_id=None):
     """
     检查消息是否符合白名单
     """
@@ -482,7 +500,7 @@ def is_blacklisted(text, channel_name=None, chat_id=None):
 
     blacklist_entry = utils.db.connect.execute_sql(
         'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 0 AND channel_name = ? AND chat_id = ? AND keywords = ?',
-        (channel_name, chat_id, text)
+        (channel_name, chat_id, keywords)
     ).fetchone()
 
     if blacklist_entry and blacklist_entry[0].lower() in text.lower():
@@ -490,7 +508,7 @@ def is_blacklisted(text, channel_name=None, chat_id=None):
         return True
 
     return False
-def is_whitelisted(text, channel_name=None, chat_id=None):
+def is_whitelisted(text, keywords,channel_name=None, chat_id=None):
     """
     检查消息是否符合白名单
     """
@@ -498,7 +516,7 @@ def is_whitelisted(text, channel_name=None, chat_id=None):
 
     whitelist_entry = utils.db.connect.execute_sql(
         'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 1 AND channel_name = ? AND chat_id = ? AND keywords = ?',
-        (channel_name, chat_id, text)
+        (channel_name, chat_id, keywords)
     ).fetchone()
 
     if whitelist_entry and whitelist_entry[0].lower() in text.lower():
