@@ -268,6 +268,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
             bind += event_chat_username_list
 
         find = utils.db.connect.execute_sql(sql, tuple(bind)).fetchall()
+
         if find:
             print(f'channel: {event_chat_username_list}; all chat_id & keywords:{find}')  # 打印当前频道，订阅的用户以及关键字
 
@@ -389,10 +390,10 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                         should_execute_code = False
                         if check_is_whitelist(channel_name=event_chat_username, chat_id=event.chat_id):
                             # 如果关键词在白名单中并匹配，允许消息通过
-                            if is_whitelisted(text,keywords,channel_name=event_chat_username, chat_id=event.chat_id):
+                            if is_whitelisted(text,channel_name=event_chat_username, chat_id=event.chat_id):
                                 should_execute_code = True
                         else:
-                            if is_blacklisted(text,keywords,channel_name=event_chat_username, chat_id=event.chat_id):
+                            if is_blacklisted(text,channel_name=event_chat_username, chat_id=event.chat_id):
                                 break
                             else:
                                 should_execute_code = True
@@ -492,36 +493,37 @@ def check_is_whitelist(channel_name=None, chat_id=None):
 
     return bool(is_whitelist and is_whitelist[0] == 1)
 
-def is_blacklisted(text, keywords,channel_name=None, chat_id=None):
+def is_blacklisted(text,channel_name=None, chat_id=None):
     """
     检查消息是否符合白名单
     """
 
 
     blacklist_entry = utils.db.connect.execute_sql(
-        'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 0 AND channel_name = ? AND chat_id = ? AND keywords = ?',
-        (channel_name, chat_id, keywords)
-    ).fetchone()
+        'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 0 AND channel_name = ? AND chat_id = ?',
+        (channel_name, chat_id)
+    ).fetchall()
 
-    if blacklist_entry and blacklist_entry[0].lower() in text.lower():
-        print(f'blacklist match found: {blacklist_entry[0]}')
-        return True
+    for be in blacklist_entry:
+        if be and be[0].lower() in text.lower():
+            print(f'blacklist match found: {be}')
+            return True
 
     return False
-def is_whitelisted(text, keywords,channel_name=None, chat_id=None):
+def is_whitelisted(text,channel_name=None, chat_id=None):
     """
     检查消息是否符合白名单
     """
 
-
     whitelist_entry = utils.db.connect.execute_sql(
-        'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 1 AND channel_name = ? AND chat_id = ? AND keywords = ?',
-        (channel_name, chat_id, keywords)
-    ).fetchone()
+        'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 0 AND channel_name = ? AND chat_id = ?',
+        (channel_name, chat_id)
+    ).fetchall()
 
-    if whitelist_entry and whitelist_entry[0].lower() in text.lower():
-        print(f'Whitelist match found: {whitelist_entry[0]}')
-        return True
+    for wb in whitelist_entry:
+        if wb and wb[0].lower() in text.lower():
+            print(f'whitelist match found: {wb}')
+            return True
 
     return False
 
