@@ -18,6 +18,9 @@ botfather -> 选择bot -> Edit Bot -> Edit Commands
 start - 开始
 info - 显示群组/频道ID
 subscribe - 关键字1,关键字2/正则表达式 频道1,群组2 [转发目标ID] (-w)白名单参数
+unsubscribe_id - id1,id2
+unsubscribe_all - 删除所有规则
+list - 显示所有订阅列表
 help - 帮助
 ```
 
