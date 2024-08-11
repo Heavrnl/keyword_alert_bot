@@ -273,6 +273,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
             print(f'channel: {event_chat_username_list}; all chat_id & keywords:{find}')  # 打印当前频道，订阅的用户以及关键字
 
             for receiver, keywords, l_id, l_chat_id, target_channel in find:
+
                 try:
                     # 如果指定了目标频道，则使用目标频道
                     if target_channel:
@@ -400,9 +401,9 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                         if should_execute_code:
                             
                             try:
-                                if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
-                                    if isinstance(event, events.NewMessage.Event):  # 新建事件
-                                        cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
+                                # 删除缓存的添加操作，确保每条消息都能独立处理
+                                if isinstance(event, events.NewMessage.Event):  # 新建事件
+                                    cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
 
                                     # 黑名单检查
                                     if is_msg_block(receiver=receiver, msg=message.text, channel_name=event_chat_username,
@@ -441,10 +442,12 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
 
                                     else:
                                         await bot.send_message(receiver, message, link_preview=False)
+
                             except Exception as _e:
                                 print(_e)
 
                             finally:
+
                                 break
 
                         else:
