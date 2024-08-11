@@ -17,8 +17,7 @@ botfather -> 选择bot -> Edit Bot -> Edit Commands
 ```bash
 start - 开始
 info - 显示群组/频道ID
-subscribe - 关键字1,关键字2 频道1,群组2 [转发目标ID] (-w)白名单参数
-subscribe - 正则表达式 频道1,群组2 [转发目标ID]
+subscribe - 关键字1,关键字2/正则表达式 频道1,群组2 [转发目标ID] (-w)白名单参数
 help - 帮助
 ```
 
