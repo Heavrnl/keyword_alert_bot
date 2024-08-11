@@ -333,12 +333,9 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                 # channel_title = f"\n\nCHANNEL: {chat_title}" if not event_chat_username else ""
                                 #
                                 # message_str = f'[#FOUND]({channel_msg_url}) **{regex_match_str}**{channel_title}'
-                                if cache.add(CACHE_KEY_UNIQUE_SEND, 1, expire=5):
-
-                                    # print(f'REGEX: receiver chat_id:{receiver}, l_id:{l_id}')
-                                    if isinstance(event, events.NewMessage.Event):  # 新建事件
-                                        cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
-
+                                # 删除缓存的添加操作，确保每条消息都能独立处理
+                                if isinstance(event, events.NewMessage.Event):  # 新建事件
+                                    cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
                                     # 黑名单检查
                                     if is_msg_block(receiver=receiver, msg=message.text, channel_name=event_chat_username,
                                                     channel_id=event.chat_id):

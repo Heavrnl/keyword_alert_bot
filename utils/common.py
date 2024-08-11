@@ -114,7 +114,20 @@ def get_event_chat_username(event_chat):
       return standby_username
   
   return None
-    
+
+  def check_is_whitelist(channel_name=None, chat_id=None):
+    """
+    检查用户是否有白名单记录（is_whitelist = 1）
+    """
+
+    is_whitelist = utils.db.connect.execute_sql(
+      'SELECT is_whitelist FROM user_subscribe_list WHERE channel_name = ? AND chat_id = ? LIMIT 1',
+      (channel_name, chat_id)
+    ).fetchone()
+
+    return bool(is_whitelist and is_whitelist[0] == 1)
+
+
 
 def get_event_chat_username_list(event_chat):
   '''
@@ -133,3 +146,37 @@ def get_event_chat_username_list(event_chat):
     
 
 
+def is_blacklisted(text, channel_name=None, chat_id=None):
+  """
+  检查消息是否符合白名单
+  """
+
+  blacklist_entry = utils.db.connect.execute_sql(
+    'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 0 AND channel_name = ? AND chat_id = ?',
+    (channel_name, chat_id)
+  ).fetchall()
+
+  for be in blacklist_entry:
+    if be and be[0].lower() in text.lower():
+      print(f'blacklist match found: {be}')
+      return True
+
+  return False
+
+
+def is_whitelisted(text, channel_name=None, chat_id=None):
+  """
+  检查消息是否符合白名单
+  """
+
+  whitelist_entry = utils.db.connect.execute_sql(
+    'SELECT keywords FROM user_subscribe_list WHERE is_whitelist = 0 AND channel_name = ? AND chat_id = ?',
+    (channel_name, chat_id)
+  ).fetchall()
+
+  for wb in whitelist_entry:
+    if wb and wb[0].lower() in text.lower():
+      print(f'whitelist match found: {wb}')
+      return True
+
+  return False
