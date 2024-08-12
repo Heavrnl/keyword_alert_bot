@@ -1,4 +1,6 @@
 # coding=utf-8
+from collections import deque
+
 import socks
 import requests
 from telethon import TelegramClient, events, sync, errors, types
@@ -183,6 +185,15 @@ async def resolve_invit_hash(invit_hash, expired_secends=60 * 5):
         return rel
     return None
 
+message_queue = deque(maxlen=2)
+def process_message(new_message):
+    if new_message in message_queue:
+        print("重复消息，不执行后续操作")
+        return False
+
+    message_queue.append(new_message)  # 将新消息添加到队列末尾
+    print("新消息，执行后续操作")
+    return True
 
 # client相关操作 目的：读取消息
 @client.on(events.MessageEdited)
@@ -334,6 +345,9 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                                 #
                                 # message_str = f'[#FOUND]({channel_msg_url}) **{regex_match_str}**{channel_title}'
                                 # 删除缓存的添加操作，确保每条消息都能独立处理
+                                if not process_message(message.text):
+                                    break
+
                                 if isinstance(event, events.NewMessage.Event):  # 新建事件
                                     cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
                                     # 黑名单检查
@@ -399,6 +413,8 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                             
                             try:
                                 # 删除缓存的添加操作，确保每条消息都能独立处理
+                                if not process_message(message.text):
+                                    break
                                 if isinstance(event, events.NewMessage.Event):  # 新建事件
                                     cache.set(send_cache_key, 1, expire=86400)  # 发送标记缓存一天
 
